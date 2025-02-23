@@ -2,42 +2,86 @@
   let dirtPoints = 0;
   // Handle received data from server
   hytopia.onData(data => {
-    console.log('data', data);
+    console.log('client data', data);
     if (data.type === 'dirtPoints') {
-        console.log('dirtPoints', data.points);
       dirtPoints = data.points;
       updateDirtDisplay();
+    } else if (data.type === 'updateKingScore') {
+      console.log('updating king score')
+      kingScore = data.score;
+      updateKingScoreDisplay();
     }
   });
-
   function updateDirtDisplay() {
     document.getElementById('dirt-points').textContent = `Dirt: ${dirtPoints}`;
   }
-  console.log('dirtPoints', dirtPoints);
+  function updateKingScoreDisplay() {
+    document.getElementById('king-score').textContent = `KOTH Timer: ${kingScore}`;
+  }
 </script>
 
-<div id="player-panel">
+<div id="king-score" style="position: absolute; top: 20px; right: 20px; color: gold; font-size: 24px;">
+  King Score: 0
+</div>
+
+<div id="player-panel" style="position: absolute; bottom: 20px; right: 20px;">
   <div id="dirt-points">Dirt: 0</div>
 </div>
 
 <style>
-  #player-panel {
-    position: absolute;
-    right: 20px;
-    top: 20px;
-    background-color: rgba(100, 68, 42, 0.7);
-    color: white;
-    padding: 15px;
-    border-radius: 8px;
-    min-width: 100px;
-    font-family: Arial, sans-serif;
-    letter-spacing: 0.5px;
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        color: white;
+        user-select: none;
+    }
 
-  }
-  #dirt-points {
-    margin: 8px 0;
-    font-weight: bold;
-    color: #4CAF50;
-  }
-  /* ... rest of existing styles ... */
+    #king-score {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        color: gold;
+        font-size: 24px;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    }
+
+    #player-panel {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        background: rgb(255, 255, 255);
+        padding: 10px;
+        border-radius: 5px;
+    }
+
+    #dirt-points {
+        font-size: 20px;
+        color: #8B4513; /* Brown color for dirt */
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    }
+
+    #center-prompt {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 18px;
+        color: white;
+        text-align: center;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        display: none;
+    }
+
+    .highlight {
+        animation: glow 1s ease-in-out infinite alternate;
+    }
+
+    @keyframes glow {
+        from {
+            text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 15px gold;
+        }
+        to {
+            text-shadow: 0 0 10px #fff, 0 0 20px #fff, 0 0 30px gold;
+        }
+    }
 </style>

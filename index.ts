@@ -35,6 +35,9 @@ import { generateMap } from './generateMap';
 import { MyPlayerController } from './MyPlayerController';
 import { PlayerStateManager } from './PlayerStateManager';
 import { DirtBlockManager } from './dirtBlocks/DirtBlockManager';
+import { DirtGun } from './DirtGun';
+import ZombieEntity from './enemies/ZombieEntity';
+import GameManager from './GameManager';
 /**
  * startServer is always the entry point for our game.
  * It accepts a single function where we should do any
@@ -65,8 +68,13 @@ startServer(world => {
    * After building, hit export and drop the .json file in
    * the assets folder as map.json.
    */
-  const map = generateMap();
-  world.loadMap(map);
+  world.loadMap(generateMap());
+
+  // Setup game
+  const stateManager = new PlayerStateManager();
+  const dirtBlockManager = new DirtBlockManager(world, stateManager);
+  const myController = new MyPlayerController(stateManager, dirtBlockManager, world);
+  GameManager.instance.setupGame(world, dirtBlockManager);
 
   /**
    * Handle player joining the game. The onPlayerJoin
@@ -77,30 +85,12 @@ startServer(world => {
    * internally uses our player entity controller.
    */
   world.onPlayerJoin = player => {
-  // Initialize new controller with dependencies
-  const stateManager = new PlayerStateManager();
-  const dirtBlockManager = new DirtBlockManager(world, stateManager);
-  const myController = new MyPlayerController(stateManager, dirtBlockManager, world);
-    
-    const playerEntity = new PlayerEntity({
-      player,
-      name: 'Player',
-      modelUri: 'models/players/player.gltf',
-      modelLoopedAnimations: [ 'idle' ],
-      modelScale: 0.5,
-      controller: myController
-    });
 
     player.ui.load('ui/index.html');
-    myController.initPlayer(player);
     stateManager.initializePlayer(player);
-    playerEntity.spawn(world, { x: 0, y: 75, z: 0 });
-
-    setTimeout(() => {
-      dirtBlockManager.spawnInitialBlocks();
-    }, 500);
 
 
+    GameManager.instance.handlePlayerJoin(player, world, stateManager);
 
     // Send a nice welcome message that only the player who joined will see ;)
     world.chatManager.sendPlayerMessage(player, 'Welcome to dirtWRLD', '00FF00');
@@ -108,8 +98,6 @@ startServer(world => {
     world.chatManager.sendPlayerMessage(player, 'Press space to jump.');
     world.chatManager.sendPlayerMessage(player, 'Hold shift to sprint.');
     world.chatManager.sendPlayerMessage(player, 'Press \\ to enter or exit debug view.');
-  
-
   };
 
   /**

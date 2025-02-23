@@ -20,15 +20,70 @@ interface ZoneSpawnState {
 export class DirtBlockManager {
     private baitBlocks: Map<string, DirtBlock> = new Map();
     private zoneStates: Map<string, ZoneSpawnState> = new Map();
-    private maxBlocksPerZone = 10;
+    private maxBlocksPerZone = 100;
+    private initialBlocks = 10;
     private world: World;
     private stateManager: PlayerStateManager;
+    private spawnInterval: NodeJS.Timer | null = null;
+
+    private _spawnTimeout?: NodeJS.Timer;
+    private readonly SPAWN_INTERVAL_MS = 1000;
+
     
     constructor(world: World, stateManager: PlayerStateManager) {
         this.world = world;
-        this.initializeZoneStates();
-        this.spawnInitialBlocks();
         this.stateManager = stateManager;
+        this.initializeZoneStates();
+        // this.spawnInitialBlocks();
+       // this.startSpawning();
+    }
+
+    private _spawnLoop() {
+        if (!this.world) return;
+        clearTimeout(this._spawnTimeout);
+
+        // Spawn new block if needed
+        this.spawnNewBlockIfNeeded();
+
+        // Continue spawn loop
+        this._spawnTimeout = setTimeout(
+            () => this._spawnLoop(), 
+            this.SPAWN_INTERVAL_MS
+        );
+    }
+
+    public startSpawning() {
+        this._spawnLoop();
+    }
+
+    public stopSpawning() {
+        if (this._spawnTimeout) {
+            clearTimeout(this._spawnTimeout);
+        }
+    }
+
+    private spawnNewBlockIfNeeded() {
+        // Get total blocks across all zones
+        let totalBlocks = 0;
+        this.zoneStates.forEach(state => {
+            totalBlocks += state.activeBlocks;
+        });
+
+        // If we haven't reached max blocks, spawn a new one
+        if (totalBlocks < this.maxBlocksPerZone) {
+            this.balanceZones(); // This will spawn a block in the zone that needs it most
+            console.log(`Spawned new block. Total blocks: ${totalBlocks + 1}`);
+        } else {
+            console.log('Maximum blocks reached');
+        }
+    }
+
+    // Clean up when game ends or scene changes
+    public cleanup() {
+        if (this.spawnInterval) {
+            clearInterval(this.spawnInterval);
+            this.spawnInterval = null;
+        }
     }
 
     private initializeZoneStates() {
@@ -43,7 +98,7 @@ export class DirtBlockManager {
 
     public spawnInitialBlocks() {
         BlOCK_SPAWN_LOCATIONS.forEach(zone => {
-            for (let i = 0; i < this.maxBlocksPerZone; i++) {
+            for (let i = 0; i < this.initialBlocks; i++) {
                 this.spawnBlockInZone(zone.id);
             }
         });
@@ -95,9 +150,15 @@ export class DirtBlockManager {
         }
     }
 
+    private getRandomDirtTexture(): string {
+        const totalBlocks = 26; // Based on your dirt_block_1 through dirt_block_26
+        const randomBlock = Math.floor(Math.random() * totalBlocks) + 1;
+        return `blocks/dirtblocks/dirt_block_${randomBlock}`;
+    }
+
     private createDirtBlock(position: Vector3): DirtBlock {
         const entity = new Entity({
-            blockTextureUri: 'blocks/dirt.png',
+            blockTextureUri: this.getRandomDirtTexture(),
             blockHalfExtents: { x: 0.5, y: 0.5, z: 0.5 },
             rigidBodyOptions: {
                 type: RigidBodyType.DYNAMIC,
@@ -200,5 +261,35 @@ export class DirtBlockManager {
                 }
             }, 500);
         }
+    }
+
+    // Add these methods for round management
+    public cleanupRound() {
+        // Despawn all existing blocks
+        this.baitBlocks.forEach((block) => {
+            block.entity.despawn();
+        });
+        this.baitBlocks.clear();
+        
+        // Reset zone states
+        this.zoneStates.forEach((state) => {
+            state.activeBlocks = 0;
+            state.usedCoordinates.clear();
+        });
+        
+        // Stop spawning
+        this.stopSpawning();
+    }
+
+    public startNewRound() {
+        // Reset any round-specific variables
+        this.maxBlocksPerZone = 100; // Could vary by round
+        this.initialBlocks = 10;     // Could vary by round
+        
+        // Spawn initial blocks for new round
+        this.spawnInitialBlocks();
+        
+        // Start the spawn loop
+       // this.startSpawning();
     }
 }

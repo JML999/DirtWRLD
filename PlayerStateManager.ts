@@ -2,11 +2,11 @@ import { Entity, Player, World } from 'hytopia';
 
 export type PlayerState = {
     dirt: number;
+    kingScore: number;
 };
 
 // First, define our state manager
 export class PlayerStateManager {
-    private readonly PLAYER_EYE_HEIGHT = 0.1; // Assuming a default eye height
 
     private states: Map<Player, PlayerState> = new Map();
 
@@ -15,7 +15,8 @@ export class PlayerStateManager {
 
     initializePlayer(player: Player) {
         this.states.set(player, {
-            dirt: 0
+            dirt: 0,
+            kingScore: 0
         });
     }
 

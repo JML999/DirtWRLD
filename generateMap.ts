@@ -29,8 +29,10 @@ export function createFlatArea(width: number, depth: number, baseHeight: number 
 export function generateMap(): WorldMap {
     const blocks: Record<string, number> = {};
     const WORLD_SIZE = 100;
-    const FLAT_AREA_SIZE = 30; // Size of flat area around spawn
-    const FLAT_AREA_HEIGHT = 15; // Height of the flat area
+    const FLAT_AREA_SIZE = 15;
+    const FLAT_AREA_HEIGHT = 15;
+    const WAITING_AREA_HEIGHT = 100; // Height of waiting area
+    const WAITING_AREA_SIZE = 25;    // Size of waiting platform
     const proceduralSpawnPoints: Vector3[] = [];
     const MAX_PROCEDURAL_SPAWNS = 20;
     
@@ -60,8 +62,43 @@ export function generateMap(): WorldMap {
             for (let y = 0; y <= height; y++) {
                 const blockType = y === height ? 2 : 1; // Grass on top, stone below
                 blocks[`${x},${y},${z}`] = blockType;
+            }
+        }
+    }
 
-
+    // Generate waiting area platform
+    let specialBlocksPlaced = 0;
+    let wallSpecialBlocksPlaced = 0;
+    const MAX_SPECIAL_BLOCKS = 10;
+    
+    for (let x = -WAITING_AREA_SIZE/2; x < WAITING_AREA_SIZE/2; x++) {
+        for (let z = -WAITING_AREA_SIZE/2; z < WAITING_AREA_SIZE/2; z++) {
+            // Random block type between 3 and 8
+            let blockType = Math.floor(Math.random() * 6) + 3;
+            
+            // Small chance to place special block if we haven't placed all 10
+            if (specialBlocksPlaced < MAX_SPECIAL_BLOCKS && Math.random() < 0.05) {
+                blockType = 9;
+                specialBlocksPlaced++;
+            }
+            
+            // Create platform
+            blocks[`${x},${WAITING_AREA_HEIGHT},${z}`] = blockType;
+            
+            // Add barriers with random blocks
+            if (x === -WAITING_AREA_SIZE/2 || x === WAITING_AREA_SIZE/2 - 1 ||
+                z === -WAITING_AREA_SIZE/2 || z === WAITING_AREA_SIZE/2 - 1) {
+                for (let y = 1; y <= 5; y++) {
+                    blockType = Math.floor(Math.random() * 6) + 3;
+                    
+                    // Separate count for wall special blocks
+                    if (wallSpecialBlocksPlaced < MAX_SPECIAL_BLOCKS && Math.random() < 0.05) {
+                        blockType = 9;
+                        wallSpecialBlocksPlaced++;
+                    }
+                    
+                    blocks[`${x},${WAITING_AREA_HEIGHT + y},${z}`] = blockType;
+                }
             }
         }
     }
@@ -69,8 +106,20 @@ export function generateMap(): WorldMap {
     return {
         blockTypes: [
             { id: 1, name: "stone", textureUri: "blocks/stone.png" },
-            { id: 2, name: "grass", textureUri: "blocks/grass" }
+            { id: 2, name: "grass", textureUri: "blocks/grass" },
+            { id: 3, name: "ice", textureUri: "blocks/dirtblocks/dirt_block_3" },
+            { id: 4, name: "dirtblock", textureUri: "blocks/dirtblocks/dirt_block_1" },
+            { id: 5, name: "dirtgrass", textureUri: "blocks/dirtblocks/dirt_block_2" },
+            { id: 6, name: "dirticegrass", textureUri: "blocks/dirtblocks/dirt_block_46" },
+            { id: 7, name: "dirtdirtgrass", textureUri: "blocks/dirtblocks/dirt_block_92" },
+            { id: 8, name: "dirticedirt", textureUri: "blocks/dirtblocks/dirt_block_92" },
+            { id: 9, name: "dirtgold", textureUri: "blocks/dirtblocks/dirt_block_101" },
         ],
         blocks
     };
+}
+
+// Helper function to get waiting area spawn point
+export function getWaitingAreaSpawn(): Vector3 {
+    return new Vector3(0, 102, 0);
 }

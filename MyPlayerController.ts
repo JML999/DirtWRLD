@@ -1,4 +1,4 @@
-import { PlayerEntityController, Vector3} from "hytopia";
+import { PlayerEntityController, Vector3, Quaternion } from "hytopia";
 import type { PlayerEntity, PlayerInput, PlayerCameraOrientation, Entity, World} from "hytopia";
 import type { PlayerStateManager } from "./PlayerStateManager";
 import type { PlayerState } from "./PlayerStateManager";
@@ -6,9 +6,14 @@ import type { PlayerUI } from "hytopia";
 import type { Player } from "hytopia";
 import * as math from './utils/math';
 import type { DirtBlockManager } from "./dirtBlocks/DirtBlockManager";
+import { DirtGun } from "./DirtGun";    
+import GamePlayerEntity from "./GamePlayerEntity";
 
 
 export class MyPlayerController extends PlayerEntityController {
+    private readonly FLAT_AREA_HEIGHT = 16; // Match with generateMap.ts
+    private readonly SCORE_INTERVAL = 100; 
+    
     private stateManager: PlayerStateManager;
     private dirtBlockManager: DirtBlockManager;
     private world: World;
@@ -16,13 +21,15 @@ export class MyPlayerController extends PlayerEntityController {
     constructor(
         stateManager: PlayerStateManager,
         dirtBlockManager: DirtBlockManager,
-        world: World
+        world: World,
     ) {
         super();
         this.stateManager = stateManager;
         this.dirtBlockManager = dirtBlockManager;
         this.world = world;
     }
+
+    
 
     onTick = (entity: Entity, deltaTimeMs: number): void => {
         const playerEntity = entity as PlayerEntity;
@@ -35,14 +42,37 @@ export class MyPlayerController extends PlayerEntityController {
             this.handlePlayerDeath(playerEntity);
             return;
         }
+        this.scoreCheck(playerEntity, deltaTimeMs);
     }
+
+
 
     onTickWithPlayerInput = (entity: PlayerEntity, input: PlayerInput, cameraOrientation: PlayerCameraOrientation, deltaTimeMs: number): void => {
         if (!entity.world) return;
-      //  const state = this.stateManager.getState(entity.player);
-      //  if (!state) return;
-
+        const state = this.stateManager.getState(entity.player);
+        if (!state) return;
         this.handleDigging(entity, input);
+        this.handleShooting(entity, input);
+    }
+
+    private scoreCheck(playerEntity: PlayerEntity, deltaTimeMs: number): void {
+        // King of the Hill check
+        let state = this.stateManager.getState(playerEntity.player);
+        if (!state) return;
+        const distanceFromCenter = Math.sqrt(
+            playerEntity.position.x * playerEntity.position.x + 
+            playerEntity.position.z * playerEntity.position.z
+        );
+        
+        let calc = Math.abs(playerEntity.position.y - (this.FLAT_AREA_HEIGHT + 1)); // Add 1 for player height       
+        if (calc < 0.5 && distanceFromCenter < 15) {
+            // Player is on the flat area
+            state.kingScore = (state.kingScore || 0) + (deltaTimeMs / this.SCORE_INTERVAL);
+            playerEntity.player.ui.sendData({ 
+                type: 'updateKingScore', 
+                score: Math.floor(state.kingScore) 
+            });
+        }
     }
 
     private handleDigging(entity: PlayerEntity, input: PlayerInput): void {
@@ -62,6 +92,15 @@ export class MyPlayerController extends PlayerEntityController {
             this.dirtBlockManager.handleBlockHit(raycastResult.hitEntity.id?.toString() || '', hitPointVector, entity.player);
         }
 
+    }
+
+    private handleShooting(entity: PlayerEntity, input: PlayerInput): void {
+        if (!input['q']) return;
+        const gamePlayer = entity as GamePlayerEntity;
+        const aimResult = this.calculateAimDirection(entity, 1.1);
+        if (!aimResult) return;
+        entity.startModelOneshotAnimations(['shoot_right_upper']);
+        gamePlayer.shoot(aimResult.origin, aimResult.direction);
     }
 
     // This is the aim direction for the player it cast a raycast from the center of the camera to find the target point
@@ -154,45 +193,17 @@ export class MyPlayerController extends PlayerEntityController {
     }
 
     private handlePlayerDeath(entity: PlayerEntity): void {
-        entity.stopModelAnimations(['crawling']);
-        entity.startModelLoopedAnimations(['idle']);
-        entity.setPosition({ x: 0, y: 10, z: 0 });
-        entity.rawRigidBody?.setLinearVelocity({ x: 0, y: 0, z: 0 });
-        entity.rawRigidBody?.setGravityScale(1.0);
-        entity.rawRigidBody?.setLinearDamping(0.0);
-    }
-
-
-    initPlayer(player: Player): void {
-        // Setup UI handler
-        player.ui.onData = (playerUI: PlayerUI, data: Record<string, any>) => {
-            this.handleUIEvent(player, data);
-        };
+        entity.setPosition({ x: 0, y: 75, z: 0 });
     }
 
     override attach(entity: Entity): void {
         super.attach(entity);
     }
 
-    private handleUIEvent(player: Player, data: Record<string, any>): void {
-        console.log('[Server] Received UI action:', data);
-
-        switch (data.type) {
-            case 'disablePlayerInput':
-                console.log('[Server] Disabling player input');
-                player.ui.lockPointer(false);
-                break;
-
-            case 'enablePlayerInput':
-                console.log('[Server] Enabling player input');
-                player.ui.lockPointer(true);
-                break;
-
-        }
-    }
-
     override detach(entity: Entity): void {
         super.detach(entity);
         // Cleanup if needed
     }
+
+
 }
